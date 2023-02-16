@@ -1,26 +1,50 @@
 const axios = require('axios');
 const { JSDOM } = require('jsdom');
 const jquery = require('jquery');
+const {
+	LedMatrix,
+	GpioMapping,
+	LedMatrixUtils,
+	PixelMapperType,
+} = require('rpi-led-matrix');
 
 const BASE_URL = 'https://www.espn.com/mens-college-basketball/lines';
 
+// Main method
 axios.get(BASE_URL).then((response) => {
 	console.log(response);
 	const webpage = new JSDOM(response.data).window;
 	const $ = jquery(webpage);
 	const games = getGameData($);
 
-	games.forEach((game) => console.log(game));
+	const formattedGames = formatAndDisplay(games);
+
+	formattedGames.forEach((game) => console.log(game));
 
 	const x = 1;
+
+	displayLedMatrix();
 });
 
+// Info for the games
+function formatAndDisplay(games) {
+	const formattedGames = games.map(
+		(game) =>
+			`${game.home.name} (${game.home.ml}) ${game.spread} v ${game.away.name} (${game.away.ml}) o/u ${game.over}`
+	);
+	return formattedGames;
+}
+
+/**
+ * Get the info for all games
+ *
+ * @param {*} $
+ * @returns
+ */
 function getGameData($) {
 	const games = [];
 
 	// TODO reformat this so we grab the game object and then just find parent date? - that may help with the date not being pulled farther down
-
-	// TODO the spread is always on the favorite, but the favorite isn't always first, so that's going to complicate things
 
 	// Get the information for each day
 	$('.margin-date').each((i, dayInfo) => {
@@ -30,7 +54,8 @@ function getGameData($) {
 	return games;
 }
 
-/** Get the information for all of a day's games
+/**
+ * Get the information for all of a day's games
  *
  * @param {*} $
  * @param {*} dayInfo
@@ -48,7 +73,8 @@ function getDailyGames($, dayInfo) {
 	return dailyGames;
 }
 
-/** Get the information for a game
+/**
+ * Get the information for a game
  *
  * @param {*} $
  * @param {*} date
@@ -65,8 +91,8 @@ function getGameInfo($, date, gameInfo) {
 	const game = {
 		date: date,
 		time: time,
-		favorite: null,
-		dog: null,
+		home: null,
+		away: null,
 		spread: null,
 		over: null,
 		teams: [],
@@ -80,16 +106,17 @@ function getGameInfo($, date, gameInfo) {
 	game.spread = spreadOver.spread;
 	game.over = spreadOver.over;
 
-	// Get the info for the favorite
-	game.favorite = getTeamInfo($, teams[0]);
+	// Get the info for the home team
+	game.home = getTeamInfo($, teams[0]);
 
-	// Get the info for the underdog
-	game.dog = getTeamInfo($, teams[1]);
+	// Get the info for the away team
+	game.away = getTeamInfo($, teams[1]);
 
 	return game;
 }
 
-/** Get the name, logo, and moneyline odds for a team
+/**
+ * Get the name, logo, and moneyline odds for a team
  *
  * @param {*} $
  * @param {*} teamObject
@@ -104,12 +131,62 @@ function getTeamInfo($, teamObject) {
 	};
 }
 
-/** Get the spread and over for a game
+/**
+ * Get the spread and over for a game
  *
  */
 function getSpreadOver($, teamsInfo) {
+	const prop1 = $($(teamsInfo[0]).find('.Table__TD')[2]).text();
+	const prop2 = $($(teamsInfo[1]).find('.Table__TD')[2]).text();
+
+	const p1IsSpread = prop1.indexOf('-') || prop1.indexOf('+');
+
 	return {
-		spread: $($(teamsInfo[0]).find('.Table__TD')[2]).text(),
-		over: $($(teamsInfo[1]).find('.Table__TD')[2]).text(),
+		spread: p1IsSpread ? prop1 : prop2,
+		over: p1IsSpread ? prop2 : prop1,
 	};
+}
+
+// RGB Matrix Logic
+
+function displayLedMatrix() {
+	const matrix = new LedMatrix(
+		{
+			...LedMatrix.defaultMatrixOptions(),
+			rows: 64,
+			cols: 64,
+			chainLength: 2,
+			hardwareMapping: GpioMapping.AdafruitHatPwm,
+			pixelMapperConfig: LedMatrixUtils.encodeMappers({
+				type: PixelMapperType.U,
+			}),
+		},
+		{
+			...LedMatrix.defaultRuntimeOptions(),
+			gpioSlowdown: 1,
+		}
+	);
+
+	// Sample code
+	matrix
+		.clear() // clear the display
+		.brightness(100) // set the panel brightness to 100%
+		.fgColor(0x0000ff) // set the active color to blue
+		.fill() // color the entire diplay blue
+		.fgColor(0xffff00) // set the active color to yellow
+		// draw a yellow circle around the display
+		.drawCircle(matrix.width() / 2, matrix.height() / 2, matrix.width() / 2 - 1)
+		// draw a yellow rectangle
+		.drawRect(
+			matrix.width() / 4,
+			matrix.height() / 4,
+			matrix.width() / 2,
+			matrix.height() / 2
+		)
+		// sets the active color to red
+		.fgColor({ r: 255, g: 0, b: 0 })
+		// draw two diagonal red lines connecting the corners
+		.drawLine(0, 0, matrix.width(), matrix.height())
+		.drawLine(matrix.width() - 1, 0, 0, matrix.height() - 1)
+		.sync();
 }

@@ -11,7 +11,9 @@
 	"license": "ISC",
 	"dependencies": {
 		"axios": "^1.3.2",
+		"canvas": "^2.11.0",
 		"jquery": "^3.6.3",
-		"jsdom": "^21.1.0"
+		"jsdom": "^21.1.0",
+		"node-pixel-pusher": "^1.0.4"
 	}
 }

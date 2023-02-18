@@ -1,18 +1,13 @@
 const axios = require('axios');
 const { JSDOM } = require('jsdom');
 const jquery = require('jquery');
-const {
-	LedMatrix,
-	GpioMapping,
-	LedMatrixUtils,
-	PixelMapperType,
-} = require('rpi-led-matrix');
+const PixelPusher = require('node-pixel-pusher');
 
 const BASE_URL = 'https://www.espn.com/mens-college-basketball/lines';
 
 // Main method
 axios.get(BASE_URL).then((response) => {
-	console.log(response);
+	// console.log(response);
 	const webpage = new JSDOM(response.data).window;
 	const $ = jquery(webpage);
 	const games = getGameData($);
@@ -150,43 +145,34 @@ function getSpreadOver($, teamsInfo) {
 // RGB Matrix Logic
 
 function displayLedMatrix() {
-	const matrix = new LedMatrix(
-		{
-			...LedMatrix.defaultMatrixOptions(),
-			rows: 64,
-			cols: 64,
-			chainLength: 2,
-			hardwareMapping: GpioMapping.AdafruitHatPwm,
-			pixelMapperConfig: LedMatrixUtils.encodeMappers({
-				type: PixelMapperType.U,
-			}),
-		},
-		{
-			...LedMatrix.defaultRuntimeOptions(),
-			gpioSlowdown: 1,
-		}
-	);
+	const service = new PixelPusher.Service();
 
-	// Sample code
-	matrix
-		.clear() // clear the display
-		.brightness(100) // set the panel brightness to 100%
-		.fgColor(0x0000ff) // set the active color to blue
-		.fill() // color the entire diplay blue
-		.fgColor(0xffff00) // set the active color to yellow
-		// draw a yellow circle around the display
-		.drawCircle(matrix.width() / 2, matrix.height() / 2, matrix.width() / 2 - 1)
-		// draw a yellow rectangle
-		.drawRect(
-			matrix.width() / 4,
-			matrix.height() / 4,
-			matrix.width() / 2,
-			matrix.height() / 2
-		)
-		// sets the active color to red
-		.fgColor({ r: 255, g: 0, b: 0 })
-		// draw two diagonal red lines connecting the corners
-		.drawLine(0, 0, matrix.width(), matrix.height())
-		.drawLine(matrix.width() - 1, 0, 0, matrix.height() - 1)
-		.sync();
+	service.on('discover', (device) => {
+		createRenderer(device);
+	});
+}
+
+const nodeCanvas = require('canvas');
+
+const MAX_FPS = 30;
+
+function createRenderer(device) {
+	const width = 64;
+	const height = 64;
+	const canvas = nodeCanvas.createCanvas(width, height);
+	const ctx = canvas.getContext('2d');
+
+	console.log(`Creating renderer ${width}x${height} ${MAX_FPS}fps`);
+
+	device.startRendering(() => {
+		// Render
+		ctx.fillStyle = 'green';
+		ctx.fillRect(0, 0, width, height);
+
+		// Get data
+		const ImageData = ctx.getImageData(0, 0, width, height);
+
+		// Send data to LEDs
+		device.setRGBABuffer(ImageData.data);
+	}, MAX_FPS);
 }

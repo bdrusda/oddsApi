@@ -169,5 +169,5 @@ function displayLedMatrix(games) {
 	});
 
 	// and load the index.html of the app.
-	mainWindow.loadFile('index.html');
+	mainWindow.loadFile('index.html', { query: { data: JSON.stringify(games) } });
 }

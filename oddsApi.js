@@ -2,23 +2,34 @@ const axios = require('axios');
 const { JSDOM } = require('jsdom');
 const jquery = require('jquery');
 const PixelPusher = require('node-pixel-pusher');
+const { app, BrowserWindow } = require('electron');
 
 const BASE_URL = 'https://www.espn.com/mens-college-basketball/lines';
 
 // Main method
-axios.get(BASE_URL).then((response) => {
-	// console.log(response);
-	const webpage = new JSDOM(response.data).window;
-	const $ = jquery(webpage);
-	const games = getGameData($);
+app.whenReady().then(() => {
+	axios.get(BASE_URL).then((response) => {
+		// console.log(response);
+		const webpage = new JSDOM(response.data).window;
+		const $ = jquery(webpage);
+		const games = getGameData($);
 
-	const formattedGames = formatAndDisplay(games);
+		const formattedGames = formatAndDisplay(games);
 
-	formattedGames.forEach((game) => console.log(game));
+		formattedGames.forEach((game) => console.log(game));
 
-	const x = 1;
+		const x = 1;
 
-	displayLedMatrix();
+		displayLedMatrix(formattedGames);
+	});
+
+	app.on('activate', function () {
+		if (BrowserWindow.getAllWindows().length === 0) createWindow();
+	});
+});
+
+app.on('window-all-closed', function () {
+	if (process.platform !== 'darwin') app.quit();
 });
 
 // Info for the games
@@ -144,35 +155,19 @@ function getSpreadOver($, teamsInfo) {
 
 // RGB Matrix Logic
 
-function displayLedMatrix() {
-	const service = new PixelPusher.Service();
-
-	service.on('discover', (device) => {
-		createRenderer(device);
+function displayLedMatrix(games) {
+	// Create the browser window.
+	const mainWindow = new BrowserWindow({
+		width: 694,
+		height: 427,
+		webPreferences: {
+			nodeIntegration: true,
+			backgroundThrottling: false,
+			contextIsolation: false,
+			enableRemoteModule: true,
+		},
 	});
-}
 
-const nodeCanvas = require('canvas');
-
-const MAX_FPS = 30;
-
-function createRenderer(device) {
-	const width = 64;
-	const height = 64;
-	const canvas = nodeCanvas.createCanvas(width, height);
-	const ctx = canvas.getContext('2d');
-
-	console.log(`Creating renderer ${width}x${height} ${MAX_FPS}fps`);
-
-	device.startRendering(() => {
-		// Render
-		ctx.fillStyle = 'green';
-		ctx.fillRect(0, 0, width, height);
-
-		// Get data
-		const ImageData = ctx.getImageData(0, 0, width, height);
-
-		// Send data to LEDs
-		device.setRGBABuffer(ImageData.data);
-	}, MAX_FPS);
+	// and load the index.html of the app.
+	mainWindow.loadFile('index.html');
 }

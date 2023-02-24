@@ -3,37 +3,50 @@ const { JSDOM } = require('jsdom');
 const jquery = require('jquery');
 const PixelPusher = require('node-pixel-pusher');
 const { app, BrowserWindow } = require('electron');
+const ipcMain = require('electron').ipcMain;
 
 const BASE_URL = 'https://www.espn.com/mens-college-basketball/lines';
+let mainWindow = undefined;
 
 // Main method
 app.whenReady().then(() => {
-	axios.get(BASE_URL).then((response) => {
-		// console.log(response);
-		const webpage = new JSDOM(response.data).window;
-		const $ = jquery(webpage);
-		const games = getGameData($);
-
-		const formattedGames = formatAndDisplay(games);
-
-		formattedGames.forEach((game) => console.log(game));
-
-		const x = 1;
-
-		displayLedMatrix(formattedGames);
+	// Create the browser window.
+	mainWindow = new BrowserWindow({
+		width: 694,
+		height: 427,
+		webPreferences: {
+			nodeIntegration: true,
+			backgroundThrottling: false,
+			contextIsolation: false,
+			enableRemoteModule: true,
+		},
 	});
 
+	// and load the index.html of the app.
+	mainWindow.loadFile('index.html');
+
+	// Create the window
 	app.on('activate', function () {
 		if (BrowserWindow.getAllWindows().length === 0) createWindow();
+		fetchGameDataAndSendToRenderer();
 	});
+
+	/* 
+		Initial call + fetch new data every minute -- in the future maybe we may want to make this call when the ticker is running out 
+		Have a listener here and have it send a message to get it
+	*/
+	setInterval(() => {
+		fetchGameDataAndSendToRenderer();
+	}, 60000);
 });
 
+// Close out the app
 app.on('window-all-closed', function () {
 	if (process.platform !== 'darwin') app.quit();
 });
 
 // Info for the games
-function formatAndDisplay(games) {
+function formatGames(games) {
 	const formattedGames = games.map(
 		(game) =>
 			`${game.home.name} (${game.home.ml}) ${game.spread} v ${game.away.name} (${game.away.ml}) o/u ${game.over}`
@@ -153,21 +166,17 @@ function getSpreadOver($, teamsInfo) {
 	};
 }
 
-// RGB Matrix Logic
+function fetchGameDataAndSendToRenderer() {
+	axios.get(BASE_URL).then((response) => {
+		// console.log(response);
+		const webpage = new JSDOM(response.data).window;
+		const $ = jquery(webpage);
+		const games = getGameData($);
 
-function displayLedMatrix(games) {
-	// Create the browser window.
-	const mainWindow = new BrowserWindow({
-		width: 694,
-		height: 427,
-		webPreferences: {
-			nodeIntegration: true,
-			backgroundThrottling: false,
-			contextIsolation: false,
-			enableRemoteModule: true,
-		},
+		const formattedGames = formatGames(games);
+
+		// formattedGames.forEach((game) => console.log(game));
+
+		mainWindow.webContents.send('gameData', formattedGames);
 	});
-
-	// and load the index.html of the app.
-	mainWindow.loadFile('index.html', { query: { data: JSON.stringify(games) } });
 }

@@ -3,6 +3,7 @@ const { JSDOM } = require('jsdom');
 const jquery = require('jquery');
 const PixelPusher = require('node-pixel-pusher');
 const { app, BrowserWindow } = require('electron');
+const { time } = require('console');
 const ipcMain = require('electron').ipcMain;
 
 const BASE_URL = 'https://www.espn.com/mens-college-basketball/lines';
@@ -14,6 +15,8 @@ app.whenReady().then(() => {
 	mainWindow = new BrowserWindow({
 		width: 694,
 		height: 427,
+		useContentSize: true,
+		resizable: false,
 		webPreferences: {
 			nodeIntegration: true,
 			backgroundThrottling: false,
@@ -27,17 +30,23 @@ app.whenReady().then(() => {
 
 	// Create the window
 	app.on('activate', function () {
+		console.log('activated');
 		if (BrowserWindow.getAllWindows().length === 0) createWindow();
-		fetchGameDataAndSendToRenderer();
 	});
 
 	/* 
 		Initial call + fetch new data every minute -- in the future maybe we may want to make this call when the ticker is running out 
 		Have a listener here and have it send a message to get it
 	*/
-	setInterval(() => {
+	/*setInterval(() => {
 		fetchGameDataAndSendToRenderer();
-	}, 60000);
+	}, 60000);*/
+
+	// Listen for renderer to request new game info
+	ipcMain.on('getGameData', (event) => {
+		console.log('getting game data per request from renderer');
+		fetchGameDataAndSendToRenderer();
+	});
 });
 
 // Close out the app
@@ -178,5 +187,6 @@ function fetchGameDataAndSendToRenderer() {
 		// formattedGames.forEach((game) => console.log(game));
 
 		mainWindow.webContents.send('gameData', formattedGames);
+		console.log('got new game data');
 	});
 }

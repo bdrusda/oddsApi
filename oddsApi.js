@@ -9,8 +9,8 @@ let mainWindow = undefined;
 app.whenReady().then(() => {
 	// Create the browser window.
 	mainWindow = new BrowserWindow({
-		width: 694,
-		height: 427,
+		width: 640,
+		height: 640,
 		useContentSize: true,
 		resizable: false,
 		webPreferences: {
@@ -24,7 +24,6 @@ app.whenReady().then(() => {
 	// and load the index.html of the app.
 	mainWindow.loadFile('index.html');
 
-	// Create the window
 	app.on('activate', function () {
 		console.log('activated');
 		if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -32,7 +31,9 @@ app.whenReady().then(() => {
 
 	// Listen for renderer to request new game info
 	ipcMain.on('getGameData', (event) => {
-		console.log('getting game data per request from renderer');
+		console.log(
+			`getting game data per request from renderer. event - ${event}`
+		);
 		slateInfo.fetchGameDataAndSendToRenderer(mainWindow);
 	});
 });

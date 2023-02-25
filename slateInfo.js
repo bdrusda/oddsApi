@@ -4,10 +4,9 @@ const axios = require('axios');
 
 const BASE_URL = 'https://www.espn.com/mens-college-basketball/lines';
 
-// Main Function
+// Main Method
 function fetchGameDataAndSendToRenderer(mainWindow) {
 	axios.get(BASE_URL).then((response) => {
-		// console.log(response);
 		const webpage = new JSDOM(response.data).window;
 		const $ = jquery(webpage);
 		const games = getGameData($);

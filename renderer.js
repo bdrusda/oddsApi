@@ -1,5 +1,7 @@
 const ipcRenderer = require('electron').ipcRenderer;
 
+var LedMatrix = require('easybotics-rpi-rgb-led-matrix');
+
 const MAX_FPS = 30;
 
 const tickerStart = 480;
@@ -23,10 +25,19 @@ function createRenderer(device) {
 
 	updateTickerInfo();
 
+	////////////////////////////////////////////////
+	//init a 16 rows  by 16 cols led matrix
+	//default hardware mapping is 'regular', could be 'adafruit-hat-pwm' ect
+	var matrix = new LedMatrix(16, 16);
+	matrix.fill(255, 50, 100);
+	matrix.setPixel(0, 0, 0, 50, 255);
+	matrix.update();
+	////////////////////////////////////////////////
+
 	// Main Information
 	// renderer process
 	ipcRenderer.on('gameData', function (event, gameData) {
-		setInterval(banner, 75 / interval, ctx, gameData);
+		setInterval(banner, 75 / interval, ctx, gameData, matrix);
 	});
 }
 
@@ -35,7 +46,7 @@ function updateTickerInfo() {
 	ipcRenderer.send('getGameData');
 }
 
-function banner(ctx, games) {
+function banner(ctx, games, matrix) {
 	const text = games.join('\t|\t');
 	console.log(`text is ${text}`);
 	ctx.clearRect(0, tickerStart, tickerWidth, tickerHeight);
@@ -55,6 +66,36 @@ function banner(ctx, games) {
 	ctx.fillText(text, globalx, 640 - fontsize * 1.5);
 
 	globalx += vector;
+
+	////////////////////////////////////////////////////////
+	matrix.fill(255, 50, 100);
+	matrix.setPixel(0, 0, 0, 50, 255);
+	matrix.update();
+	//draw on matrix
+	/*
+	matrix
+		.clear() // clear the display
+		.brightness(100) // set the panel brightness to 100%
+		.fgColor(0x0000ff) // set the active color to blue
+		.fill() // color the entire diplay blue
+		.fgColor(0xffff00) // set the active color to yellow
+		// draw a yellow circle around the display
+		.drawCircle(matrix.width() / 2, matrix.height() / 2, matrix.width() / 2 - 1)
+		// draw a yellow rectangle
+		.drawRect(
+			matrix.width() / 4,
+			matrix.height() / 4,
+			matrix.width() / 2,
+			matrix.height() / 2
+		)
+		// sets the active color to red
+		.fgColor({ r: 255, g: 0, b: 0 })
+		// draw two diagonal red lines connecting the corners
+		.drawLine(0, 0, matrix.width(), matrix.height())
+		.drawLine(matrix.width() - 1, 0, 0, matrix.height() - 1)
+		.sync();
+		*/
+	///////////////////////////////////////////////////
 }
 
 createRenderer({ deviceData: { pixelsPerStrip: 64, numberStrips: 64 } });
